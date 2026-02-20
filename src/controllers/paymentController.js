@@ -18,6 +18,16 @@ export const webhook = asyncHandler(async (req, res) => {
     res.status(200).json(successResponse('Webhook processed successfully'));
 });
 
+export const verifyPayment = asyncHandler(async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    await paymentService.verifyPayment(req.user.id, {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature
+    });
+    res.json(successResponse('Payment verified successfully'));
+});
+
 export const retryPayment = asyncHandler(async (req, res) => {
     const { packageId } = req.body;
     if (!packageId) throw new ValidationError('Package ID is required');

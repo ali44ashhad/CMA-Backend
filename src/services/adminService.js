@@ -61,6 +61,22 @@ export const createEvaluator = async (data) => {
     return evaluator;
 };
 
+// List all successful purchases (for admin: see which user bought which package)
+export const getAllPurchases = async (query) => {
+    const { studentId, limit = 500 } = query;
+    const filter = { paymentStatus: 'success' };
+    if (studentId) filter.studentId = studentId;
+
+    const purchases = await Purchase.find(filter)
+        .populate('studentId', 'name email')
+        .populate('packageId', 'name level')
+        .sort({ purchasedAt: -1 })
+        .limit(Number(limit))
+        .lean();
+
+    return { purchases };
+};
+
 export const softDeleteUser = async (userId) => {
     const user = await User.findById(userId);
     if (!user) throw new NotFoundError('User');
@@ -82,6 +98,33 @@ export const softDeleteUser = async (userId) => {
 };
 
 // Package Management
+export const getPackages = async (query) => {
+    const { level, year, status } = query;
+    const filter = { isDeleted: false };
+    if (level) filter.level = level;
+    if (year) filter.year = Number(year);
+    if (status) filter.status = status;
+
+    const packages = await Package.find(filter).lean();
+
+    // Enrich with exam count: Package -> Topics -> Exams
+    const packageIds = packages.map(p => p._id);
+    const topics = await Topic.find({ packageIds: { $in: packageIds }, isDeleted: false }).select('_id packageIds');
+    const topicIds = topics.map(t => t._id);
+    const examCountsByTopic = await Exam.aggregate([
+        { $match: { topicId: { $in: topicIds }, isDeleted: false } },
+        { $group: { _id: '$topicId', count: { $sum: 1 } } }
+    ]);
+    const topicExamCountMap = {};
+    examCountsByTopic.forEach(e => { topicExamCountMap[e._id.toString()] = e.count; });
+
+    return packages.map(pkg => {
+        const pkgTopics = topics.filter(t => t.packageIds.some(pid => pid.toString() === pkg._id.toString()));
+        const examCount = pkgTopics.reduce((sum, t) => sum + (topicExamCountMap[t._id.toString()] || 0), 0);
+        return { ...pkg, examCount };
+    });
+};
+
 export const createPackage = async (data) => {
     // Validate business logic: Only ONE set of packages per level can be active at a time per year? 
     // Schema logic: "Only ONE set of packages per level can be active at a time per year"
@@ -155,7 +198,25 @@ export const getTopics = async (query) => {
 };
 
 // Exam Management
-// Exam Management
+export const getExams = async (query) => {
+    const { level, year, examType, status } = query;
+    const filter = { isDeleted: false };
+    if (level) filter.level = level;
+    if (year) filter.year = Number(year);
+    if (examType) filter.examType = examType;
+    if (status) filter.status = status;
+
+    const exams = await Exam.find(filter)
+        .populate('topicId', 'name')
+        .sort({ level: 1, year: -1, createdAt: -1 })
+        .lean();
+
+    return exams.map(e => ({
+        ...e,
+        topicName: e.topicId?.name || '—'
+    }));
+};
+
 export const createMCQExam = async (data) => {
     const { topicId } = data;
     const topic = await Topic.findById(topicId);

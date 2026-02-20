@@ -4,6 +4,7 @@ import upload from '../middlewares/uploadMiddleware.js';
 import {
     getProfile,
     updateProfile,
+    getStats,
     getPackages,
     getPurchases,
     getExams,
@@ -37,6 +38,7 @@ router.use(authorize('student'));
 
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
+router.get('/stats', getStats);
 
 router.get('/purchases', getPurchases);
 

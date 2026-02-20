@@ -19,8 +19,11 @@ router.route('/users/:userId')
 router.route('/evaluators')
     .post(adminController.createEvaluator);
 
+router.get('/purchases', adminController.getAllPurchases);
+
 // Package Management
 router.route('/packages')
+    .get(adminController.getPackages)
     .post(adminController.createPackage);
 
 router.route('/packages/:packageId')
@@ -38,6 +41,9 @@ router.route('/topics/:topicId')
     .put(adminController.updateTopic);
 
 // Exam Management
+router.route('/exams')
+    .get(adminController.getExams);
+
 router.route('/exams/mcq')
     .post(adminController.createMCQExam);
 

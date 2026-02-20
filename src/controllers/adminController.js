@@ -18,7 +18,17 @@ export const softDeleteUser = asyncHandler(async (req, res) => {
     res.status(200).json(successResponse('User deleted successfully'));
 });
 
+export const getAllPurchases = asyncHandler(async (req, res) => {
+    const result = await adminService.getAllPurchases(req.query);
+    res.status(200).json(successResponse('Purchases fetched successfully', result));
+});
+
 // Package Management
+export const getPackages = asyncHandler(async (req, res) => {
+    const result = await adminService.getPackages(req.query);
+    res.status(200).json(successResponse('Packages fetched successfully', { packages: result }));
+});
+
 export const createPackage = asyncHandler(async (req, res) => {
     const result = await adminService.createPackage(req.body);
     res.status(201).json(successResponse('Package created successfully', result));
@@ -51,6 +61,11 @@ export const getTopics = asyncHandler(async (req, res) => {
 });
 
 // Exam Management
+export const getExams = asyncHandler(async (req, res) => {
+    const result = await adminService.getExams(req.query);
+    res.status(200).json(successResponse('Exams fetched successfully', { exams: result }));
+});
+
 export const createMCQExam = asyncHandler(async (req, res) => {
     const result = await adminService.createMCQExam(req.body);
     res.status(201).json(successResponse('MCQ exam created successfully', result));

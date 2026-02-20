@@ -88,6 +88,29 @@ export const getPackages = asyncHandler(async (req, res) => {
     res.json(successResponse('Packages fetched successfully', { packages: packagesWithCount }));
 });
 
+// 3b. Get Student Stats
+export const getStats = asyncHandler(async (req, res) => {
+    const studentId = req.user.id;
+
+    const [purchaseCount, attempts] = await Promise.all([
+        Purchase.countDocuments({ studentId, paymentStatus: 'success' }),
+        ExamAttempt.find({ studentId, status: { $in: ['submitted', 'evaluated'] } })
+            .select('autoGradedMarks evaluatorMarks')
+            .lean()
+    ]);
+
+    const testsTaken = attempts.length;
+    const evaluatedWithMarks = attempts.filter(a => (a.evaluatorMarks ?? a.autoGradedMarks) != null);
+    const totalMarks = evaluatedWithMarks.reduce((sum, a) => sum + (a.evaluatorMarks ?? a.autoGradedMarks ?? 0), 0);
+    const avgScore = evaluatedWithMarks.length > 0 ? Math.round((totalMarks / evaluatedWithMarks.length) * 10) / 10 : null;
+
+    res.json(successResponse('Stats fetched successfully', {
+        testsTaken,
+        activePackages: purchaseCount,
+        avgScore
+    }));
+});
+
 // 4. Get My Purchases
 export const getPurchases = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
@@ -184,14 +207,18 @@ export const getExams = asyncHandler(async (req, res) => {
 
         const attempt = attemptMap.get(exam._id.toString());
         const topic = topicMap.get(exam.topicId.toString());
+        const topicPackageIds = topic && topic.packageIds
+            ? topic.packageIds.map(pid => pid.toString())
+            : [];
 
-        examList.push({
+        const item = {
             _id: exam._id,
             name: exam.name,
             level: exam.level,
             year: exam.year,
             topicId: exam.topicId,
             topicName: topic ? topic.name : 'Unknown',
+            topicPackageIds,
             examType: exam.examType,
             duration: exam.duration,
             maxMarks: exam.maxMarks,
@@ -199,7 +226,15 @@ export const getExams = asyncHandler(async (req, res) => {
             extensionInterval: exam.extensionInterval,
             hasAccess,
             attemptStatus: attempt ? attempt.status : null
-        });
+        };
+        if (attempt) {
+            item.attemptId = attempt._id;
+            if (attempt.status === 'evaluated') {
+                item.checkedPdfUrl = attempt.checkedPdfUrl || null;
+                item.evaluatorRemarks = attempt.evaluatorRemarks || null;
+            }
+        }
+        examList.push(item);
     }
 
     res.json(successResponse('Exams fetched successfully', { exams: examList }));

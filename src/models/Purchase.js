@@ -51,11 +51,9 @@ const purchaseSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Indexes
+// Indexes (razorpayOrderId and invoiceNumber already have unique/sparse via field options)
 purchaseSchema.index({ studentId: 1, packageId: 1 });
-purchaseSchema.index({ razorpayOrderId: 1 }, { unique: true });
 purchaseSchema.index({ paymentStatus: 1 });
-purchaseSchema.index({ invoiceNumber: 1 }, { unique: true, sparse: true });
 purchaseSchema.index({ purchasedAt: -1 });
 
 const Purchase = mongoose.model('Purchase', purchaseSchema);

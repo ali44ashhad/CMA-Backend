@@ -11,6 +11,7 @@ router.use(protect);
 router.use(authorize('student'));
 
 router.post('/create-order', paymentController.createOrder);
+router.post('/verify', paymentController.verifyPayment);
 router.post('/retry', paymentController.retryPayment);
 
 export default router;
