@@ -13,6 +13,8 @@ import studentRoutes from './routes/studentRoutes.js';
 import evaluatorRoutes from './routes/evaluatorRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 
+import connectDB from './config/database.js';
+
 const app = express();
 
 // Middleware
@@ -25,6 +27,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // app.use(mongoSanitize());
 app.use(compression());
+
+// Ensure database connection for serverless environments (like Vercel)
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
 
 // Routes
 app.get('/', (req, res) => {
