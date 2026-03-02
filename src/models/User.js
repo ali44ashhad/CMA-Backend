@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema({
         default: 'student',
         required: true
     },
+    targetLevel: {
+        type: String,
+        enum: {
+            values: ['foundation', 'intermediate', 'final'],
+            message: '{VALUE} is not a valid target level'
+        },
+        default: null
+    },
     isDeleted: {
         type: Boolean,
         default: false

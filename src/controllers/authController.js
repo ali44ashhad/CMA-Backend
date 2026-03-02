@@ -15,7 +15,7 @@ export const register = asyncHandler(async (req, res) => {
         throw new ValidationError(error.details.map((d) => d.message).join(', '));
     }
 
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, targetLevel } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
@@ -26,13 +26,11 @@ export const register = asyncHandler(async (req, res) => {
 
     // Create user
     // Password hashing is handled by pre-save hook in User model
-    const user = await User.create({
-        name,
-        email,
-        phone,
-        password,
-        role: 'student' // Default role
-    });
+    const userData = { name, email, phone, password, role: 'student' };
+    if (targetLevel && ['foundation', 'intermediate', 'final'].includes(targetLevel)) {
+        userData.targetLevel = targetLevel;
+    }
+    const user = await User.create(userData);
 
     // Generate tokens
     const accessToken = generateAccessToken({ id: user._id, email: user.email, role: user.role });
@@ -54,7 +52,8 @@ export const register = asyncHandler(async (req, res) => {
             name: user.name,
             email: user.email,
             phone: user.phone,
-            role: user.role
+            role: user.role,
+            targetLevel: user.targetLevel
         },
         accessToken,
         refreshToken

@@ -20,7 +20,8 @@ export const registerSchema = Joi.object({
         'string.min': 'Password should have a minimum length of {#limit}',
         'string.max': 'Password should have a maximum length of {#limit}',
         'any.required': 'Password is a required field'
-    })
+    }),
+    targetLevel: Joi.string().valid('foundation', 'intermediate', 'final').optional().allow(null, '')
 });
 
 export const loginSchema = Joi.object({
