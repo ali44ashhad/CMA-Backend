@@ -39,6 +39,11 @@ export const updatePackage = asyncHandler(async (req, res) => {
     res.status(200).json(successResponse('Package updated successfully', result));
 });
 
+export const deletePackage = asyncHandler(async (req, res) => {
+    await adminService.deletePackage(req.params.packageId);
+    res.status(200).json(successResponse('Package deleted successfully'));
+});
+
 export const archivePackage = asyncHandler(async (req, res) => {
     await adminService.archivePackage(req.params.packageId);
     res.status(200).json(successResponse('Package archived successfully'));
@@ -60,6 +65,11 @@ export const getTopics = asyncHandler(async (req, res) => {
     res.status(200).json(successResponse('Topics fetched successfully', result));
 });
 
+export const deleteTopic = asyncHandler(async (req, res) => {
+    await adminService.deleteTopic(req.params.topicId);
+    res.status(200).json(successResponse('Topic deleted successfully'));
+});
+
 // Exam Management
 export const getExams = asyncHandler(async (req, res) => {
     const result = await adminService.getExams(req.query);
@@ -73,11 +83,12 @@ export const createMCQExam = asyncHandler(async (req, res) => {
 
 export const createPDFExam = asyncHandler(async (req, res) => {
     const examData = { ...req.body };
-    if (req.file) {
-        examData.questionPaperUrl = req.file.path; // Example
+    if (req.files?.questionPaper && req.files.questionPaper[0]) {
+        examData.questionPaperUrl = req.files.questionPaper[0].path;
     }
-
-
+    if (req.files?.answerKey && req.files.answerKey[0]) {
+        examData.answerKeyUrl = req.files.answerKey[0].path;
+    }
 
     const result = await adminService.createPDFExam(examData);
     res.status(201).json(successResponse('PDF exam created successfully', result));

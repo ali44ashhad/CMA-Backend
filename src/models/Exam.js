@@ -20,6 +20,12 @@ const examSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'Year is required']
     },
+    month: {
+        type: Number,
+        min: 1,
+        max: 12,
+        default: null
+    },
     examType: {
         type: String,
         enum: ['mcq', 'pdf'],
@@ -70,6 +76,10 @@ const examSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    answerKeyUrl: {
+        type: String,
+        default: null
+    },
     status: {
         type: String,
         enum: ['draft', 'active', 'archived'],
@@ -88,7 +98,7 @@ const examSchema = new mongoose.Schema({
 });
 
 // Indexes
-examSchema.index({ level: 1, year: 1, status: 1 });
+examSchema.index({ level: 1, year: 1, month: 1, status: 1 });
 examSchema.index({ topicId: 1 });
 examSchema.index({ examType: 1 });
 examSchema.index({ status: 1, isDeleted: 1 });

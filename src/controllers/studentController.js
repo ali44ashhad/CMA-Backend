@@ -174,7 +174,7 @@ export const getExams = asyncHandler(async (req, res) => {
     if (year) query.year = Number(year);
 
     const exams = await Exam.find(query)
-        .select('name level year examType duration maxMarks extensionsAllowed extensionInterval topicId status')
+        .select('name level year month examType duration maxMarks extensionsAllowed extensionInterval topicId status questionPaperUrl answerKeyUrl')
         .lean();
 
     // Check access and attempt status for each exam
@@ -216,6 +216,7 @@ export const getExams = asyncHandler(async (req, res) => {
             name: exam.name,
             level: exam.level,
             year: exam.year,
+            month: exam.month ?? null,
             topicId: exam.topicId,
             topicName: topic ? topic.name : 'Unknown',
             topicPackageIds,
@@ -224,6 +225,8 @@ export const getExams = asyncHandler(async (req, res) => {
             maxMarks: exam.maxMarks,
             extensionsAllowed: exam.extensionsAllowed,
             extensionInterval: exam.extensionInterval,
+            questionPaperUrl: exam.questionPaperUrl || null,
+            answerKeyUrl: exam.answerKeyUrl || null,
             hasAccess,
             attemptStatus: attempt ? attempt.status : null
         };
@@ -271,6 +274,7 @@ export const getExamDetails = asyncHandler(async (req, res) => {
         responseData.totalQuestions = exam.questions.length;
     } else {
         responseData.questionPaperUrl = exam.questionPaperUrl;
+        responseData.answerKeyUrl = exam.answerKeyUrl || null;
     }
 
     res.json(successResponse('Exam details fetched successfully', responseData));
@@ -317,6 +321,8 @@ export const startExam = asyncHandler(async (req, res) => {
     const responseData = {
         attemptId: attempt._id,
         examId: exam._id,
+        examName: exam.name,
+        examType: exam.examType,
         startTime: attempt.startTime,
         duration: exam.duration,
         extensionsAllowed: exam.extensionsAllowed,
@@ -542,12 +548,46 @@ export const getExamAttempt = asyncHandler(async (req, res) => {
     const { attemptId } = req.params;
 
     const attempt = await ExamAttempt.findOne({ _id: attemptId, studentId: req.user.id })
-        .populate('examId', 'name examType maxMarks');
+        .populate('examId', 'name examType maxMarks duration questionPaperUrl answerKeyUrl extensionsAllowed extensionInterval');
 
     if (!attempt) throw new NotFoundError('Attempt');
 
-    // Filter sensitive fields if needed, but for student own attempt, mostly fine
-    res.json(successResponse('Attempt details fetched successfully', attempt));
+    // Normalize shape for frontend: expose examType/questionPaperUrl at root
+    const exam = attempt.examId;
+    let questions = [];
+    if (exam?.examType === 'mcq') {
+        // Fetch question content without exposing correct options
+        const examWithQuestions = await Exam.findById(exam._id)
+            .select('questions._id questions.questionText questions.options questions.marks')
+            .lean();
+        questions = examWithQuestions?.questions || [];
+    }
+    const payload = {
+        attemptId: attempt._id,
+        examId: exam?._id || attempt.examId,
+        examName: exam?.name,
+        examType: exam?.examType,
+        maxMarks: exam?.maxMarks,
+        startTime: attempt.startTime,
+        endTime: attempt.endTime,
+        duration: exam?.duration ?? attempt.timerDuration,
+        timerDuration: attempt.timerDuration,
+        extensionsAllowed: exam?.extensionsAllowed,
+        extensionInterval: exam?.extensionInterval,
+        extensionsUsed: attempt.extensionsUsed,
+        status: attempt.status,
+        submittedPdfUrl: attempt.submittedPdfUrl,
+        checkedPdfUrl: attempt.checkedPdfUrl,
+        evaluatorMarks: attempt.evaluatorMarks,
+        autoGradedMarks: attempt.autoGradedMarks,
+        evaluatorRemarks: attempt.evaluatorRemarks,
+        answers: attempt.answers,
+        questions,
+        questionPaperUrl: exam?.questionPaperUrl || null,
+        answerKeyUrl: exam?.answerKeyUrl || null
+    };
+
+    res.json(successResponse('Attempt details fetched successfully', payload));
 });
 
 // 14. Get Exam Leaderboard

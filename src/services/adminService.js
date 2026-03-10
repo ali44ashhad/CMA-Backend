@@ -140,6 +140,59 @@ export const updatePackage = async (packageId, data) => {
     return pkg;
 };
 
+export const deletePackage = async (packageId) => {
+    // Enforce reverse dependency: cannot delete a package if related papers/exams still exist.
+    // 1) Find non-deleted topics (papers) referencing this package.
+    const topics = await Topic.find({
+        packageIds: packageId,
+        isDeleted: false
+    }).select('name level');
+
+    const topicIds = topics.map(t => t._id);
+
+    // 2) Find exams for those topics (package -> topics -> exams).
+    let examsViaTopics = [];
+    if (topicIds.length > 0) {
+        examsViaTopics = await Exam.find({
+            topicId: { $in: topicIds },
+            isDeleted: false
+        }).select('name level');
+    }
+
+    // 3) Optionally, any exams directly referencing this packageId (if such a field exists).
+    const directExams = await Exam.find({
+        packageId: packageId,
+        isDeleted: false
+    }).select('name level');
+
+    const exams = [...examsViaTopics, ...directExams];
+
+    if (topics.length > 0 || exams.length > 0) {
+        const topicSummary = topics.length
+            ? `Papers remaining: ${topics
+                  .slice(0, 5)
+                  .map(t => `${t.name} (${t.level})`)
+                  .join(', ')}${topics.length > 5 ? `, and ${topics.length - 5} more` : ''}.`
+            : '';
+
+        const examSummary = exams.length
+            ? `Exams remaining: ${exams
+                  .slice(0, 5)
+                  .map(e => `${e.name} (${e.level})`)
+                  .join(', ')}${exams.length > 5 ? `, and ${exams.length - 5} more` : ''}.`
+            : '';
+
+        const baseMessage = 'Cannot delete package while related exams or papers still exist. Delete its exams first, then papers, then package.';
+        const detailMessage = [topicSummary, examSummary].filter(Boolean).join(' ');
+
+        throw new ValidationError(`${baseMessage} ${detailMessage}`.trim());
+    }
+
+    const pkg = await Package.findByIdAndDelete(packageId);
+    if (!pkg) throw new NotFoundError('Package');
+    return pkg;
+};
+
 export const archivePackage = async (packageId) => {
     const pkg = await Package.findByIdAndUpdate(packageId, { status: 'archived' }, { new: true, runValidators: true });
     if (!pkg) throw new NotFoundError('Package');
@@ -197,12 +250,28 @@ export const getTopics = async (query) => {
     return await Topic.find(filter).populate('packageIds', 'name level');
 };
 
+export const deleteTopic = async (topicId) => {
+    // Enforce reverse dependency: cannot delete a paper if exams still exist.
+    const existingExamsCount = await Exam.countDocuments({
+        topicId,
+        isDeleted: false,
+    });
+    if (existingExamsCount > 0) {
+        throw new ValidationError('Cannot delete paper while exams exist. Delete its exams first.');
+    }
+
+    const topic = await Topic.findByIdAndDelete(topicId);
+    if (!topic) throw new NotFoundError('Topic');
+    return topic;
+};
+
 // Exam Management
 export const getExams = async (query) => {
-    const { level, year, examType, status } = query;
+    const { level, year, examType, status, month } = query;
     const filter = { isDeleted: false };
     if (level) filter.level = level;
     if (year) filter.year = Number(year);
+    if (month) filter.month = Number(month);
     if (examType) filter.examType = examType;
     if (status) filter.status = status;
 
